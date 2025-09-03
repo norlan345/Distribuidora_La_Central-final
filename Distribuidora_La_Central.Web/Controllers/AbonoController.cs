@@ -13,15 +13,24 @@ namespace Distribuidora_La_Central.Web.Controllers
     {
         private readonly IConfiguration _configuration;
 
-        // 🔹 Constantes de cadenas repetidas
+        // 🔹 Constantes de configuración
         private const string ConnectionName = "DefaultConnection";
-        private const string EstadoActivo = "Activo";
-        private const string EstadoCancelado = "Cancelado";
+
+        // 🔹 Constantes de tablas
         private const string TablaAbono = "Abono";
         private const string TablaCredito = "Credito";
 
-        // Parámetros SQL
+        // 🔹 Constantes de estados
+        private const string EstadoActivo = "Activo";
+        private const string EstadoCancelado = "Cancelado";
+
+        // 🔹 Constantes de parámetros
         private const string ParamCodigoFactura = "@codigoFactura";
+        private const string ParamIdAbono = "@idAbono";
+        private const string ParamMontoAbono = "@montoAbono";
+        private const string ParamFechaAbono = "@fechaAbono";
+        private const string ParamNuevoSaldo = "@nuevoSaldo";
+        private const string ParamNuevoEstado = "@nuevoEstado";
 
         // 🔹 Mensajes comunes
         private const string MsgNoAbonos = "No se encontraron abonos.";
@@ -120,12 +129,12 @@ namespace Distribuidora_La_Central.Web.Controllers
                 // 2. Insertar abono
                 var cmdInsertar = new SqlCommand(
                     $@"INSERT INTO {TablaAbono} (codigoFactura, montoAbono, fechaAbono)
-                       VALUES ({ParamCodigoFactura}, @montoAbono, @fechaAbono);
+                       VALUES ({ParamCodigoFactura}, {ParamMontoAbono}, {ParamFechaAbono});
                        SELECT SCOPE_IDENTITY();", con, transaccion);
 
                 cmdInsertar.Parameters.AddWithValue(ParamCodigoFactura, abono.codigoFactura);
-                cmdInsertar.Parameters.AddWithValue("@montoAbono", abono.montoAbono);
-                cmdInsertar.Parameters.AddWithValue("@fechaAbono", abono.fechaAbono);
+                cmdInsertar.Parameters.AddWithValue(ParamMontoAbono, abono.montoAbono);
+                cmdInsertar.Parameters.AddWithValue(ParamFechaAbono, abono.fechaAbono);
 
                 int idAbono = Convert.ToInt32(cmdInsertar.ExecuteScalar());
 
@@ -135,12 +144,12 @@ namespace Distribuidora_La_Central.Web.Controllers
 
                 var cmdActualizar = new SqlCommand(
                     $@"UPDATE {TablaCredito} 
-                       SET saldoMaximo = @nuevoSaldo,
-                           estado = @nuevoEstado
+                       SET saldoMaximo = {ParamNuevoSaldo},
+                           estado = {ParamNuevoEstado}
                        WHERE codigoFactura = {ParamCodigoFactura}", con, transaccion);
 
-                cmdActualizar.Parameters.AddWithValue("@nuevoSaldo", nuevoSaldo);
-                cmdActualizar.Parameters.AddWithValue("@nuevoEstado", nuevoEstado);
+                cmdActualizar.Parameters.AddWithValue(ParamNuevoSaldo, nuevoSaldo);
+                cmdActualizar.Parameters.AddWithValue(ParamNuevoEstado, nuevoEstado);
                 cmdActualizar.Parameters.AddWithValue(ParamCodigoFactura, abono.codigoFactura);
 
                 cmdActualizar.ExecuteNonQuery();
@@ -195,8 +204,8 @@ namespace Distribuidora_La_Central.Web.Controllers
             using SqlConnection con = new SqlConnection(_configuration.GetConnectionString(ConnectionName));
 
             SqlDataAdapter checkAbono = new SqlDataAdapter(
-                $"SELECT * FROM {TablaAbono} WHERE idAbono = @idAbono", con);
-            checkAbono.SelectCommand.Parameters.AddWithValue("@idAbono", idAbono);
+                $"SELECT * FROM {TablaAbono} WHERE idAbono = {ParamIdAbono}", con);
+            checkAbono.SelectCommand.Parameters.AddWithValue(ParamIdAbono, idAbono);
             DataTable dt = new();
             checkAbono.Fill(dt);
 
@@ -206,14 +215,14 @@ namespace Distribuidora_La_Central.Web.Controllers
             SqlCommand cmd = new SqlCommand(
                 $@"UPDATE {TablaAbono} 
                    SET codigoFactura = {ParamCodigoFactura},
-                       montoAbono = @montoAbono,
-                       fechaAbono = @fechaAbono
-                   WHERE idAbono = @idAbono", con);
+                       montoAbono = {ParamMontoAbono},
+                       fechaAbono = {ParamFechaAbono}
+                   WHERE idAbono = {ParamIdAbono}", con);
 
             cmd.Parameters.AddWithValue(ParamCodigoFactura, abono.codigoFactura);
-            cmd.Parameters.AddWithValue("@montoAbono", abono.montoAbono);
-            cmd.Parameters.AddWithValue("@fechaAbono", abono.fechaAbono);
-            cmd.Parameters.AddWithValue("@idAbono", idAbono);
+            cmd.Parameters.AddWithValue(ParamMontoAbono, abono.montoAbono);
+            cmd.Parameters.AddWithValue(ParamFechaAbono, abono.fechaAbono);
+            cmd.Parameters.AddWithValue(ParamIdAbono, idAbono);
 
             con.Open();
             int i = cmd.ExecuteNonQuery();
@@ -231,8 +240,8 @@ namespace Distribuidora_La_Central.Web.Controllers
             using SqlConnection con = new SqlConnection(_configuration.GetConnectionString(ConnectionName));
 
             SqlDataAdapter checkAbono = new SqlDataAdapter(
-                $"SELECT * FROM {TablaAbono} WHERE idAbono = @idAbono", con);
-            checkAbono.SelectCommand.Parameters.AddWithValue("@idAbono", idAbono);
+                $"SELECT * FROM {TablaAbono} WHERE idAbono = {ParamIdAbono}", con);
+            checkAbono.SelectCommand.Parameters.AddWithValue(ParamIdAbono, idAbono);
             DataTable dt = new();
             checkAbono.Fill(dt);
 
@@ -240,8 +249,8 @@ namespace Distribuidora_La_Central.Web.Controllers
                 return NotFound(MsgNoAbonoEliminar);
 
             SqlCommand cmd = new SqlCommand(
-                $"DELETE FROM {TablaAbono} WHERE idAbono = @idAbono", con);
-            cmd.Parameters.AddWithValue("@idAbono", idAbono);
+                $"DELETE FROM {TablaAbono} WHERE idAbono = {ParamIdAbono}", con);
+            cmd.Parameters.AddWithValue(ParamIdAbono, idAbono);
 
             con.Open();
             int i = cmd.ExecuteNonQuery();
