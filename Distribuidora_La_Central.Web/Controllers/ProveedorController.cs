@@ -97,6 +97,59 @@ namespace Distribuidora_La_Central.Web.Controllers
         }
 
 
+        [HttpDelete]
+        [Route("EliminarProveedor/{id}")]
+        public IActionResult EliminarProveeddor(int id)
+        {
+            try
+            {
+                using SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                string query = "DELETE FROM Proveedor WHERE idProveedor = @id";
+                using SqlCommand cmd = new SqlCommand(query, con);
+                cmd.Parameters.AddWithValue("@id", id);
+                con.Open();
+                int rowsAffected = cmd.ExecuteNonQuery();
+
+                if (rowsAffected > 0)
+                    return Ok(new { message = "Proveedor eliminado correctamente" });
+                else
+                    return NotFound(new { message = "Proveedor no encontrado" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = $"Error al eliminar proveedor: {ex.Message}" });
+            }
+        }
+
+        [HttpPut]
+        [Route("ActualizarProveedor/{id}")]
+        public IActionResult ActualizarProveedor(int id, [FromBody] Proveedor proveedor)
+        {
+            using SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            string query = @"UPDATE Proveedor SET 
+                    nombre = @nombre,
+                    razonSocial = @razonSocial,
+                    contacto = @contacto,
+                    telefono = @telefono,
+                    diaIngreso = @diaIngreso
+                 WHERE idProveedor = @idProveedor";
+
+            using SqlCommand cmd = new SqlCommand(query, con);
+            cmd.Parameters.AddWithValue("@idProveedor", id);
+            cmd.Parameters.AddWithValue("@nombre", proveedor.nombre);
+            cmd.Parameters.AddWithValue("@razonSocial", proveedor.razonSocial);
+            cmd.Parameters.AddWithValue("@contacto", proveedor.contacto);
+            cmd.Parameters.AddWithValue("@telefono", proveedor.telefono);
+            cmd.Parameters.AddWithValue("@diaIngreso", proveedor.diaIngreso);
+
+            con.Open();
+            int rowsAffected = cmd.ExecuteNonQuery();
+
+            if (rowsAffected > 0)
+                return Ok(new { message = "Proveedor actualizado correctamente." });
+            else
+                return NotFound(new { message = "Proveedor no encontrado." });
+        }
 
 
 

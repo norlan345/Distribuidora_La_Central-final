@@ -83,7 +83,9 @@
                     <input type="text" placeholder="Buscar clientes..." @bind="filtroBusqueda"
                            @oninput="(e) => { filtroBusqueda = e.Value.ToString();  FiltrarClientes(); }" />
                     <i class="icono-buscar"></i>
+                    
                 </div>
+                <button class="btn-nuevo" @onclick="NuevoCliente">+ Nuevo</button>
             </div>
 
             <div class="contenedor-tabla">
@@ -116,9 +118,7 @@
                                         <button class="btn-eliminar" @onclick="() => EliminarCliente(cliente.codigoCliente)" title="Eliminar">
                                             <i class="icono-eliminar"></i>
                                         </button>
-                                        <button class="btn-detalle" @onclick="() => VerDetalle(cliente)" title="Ver detalles">
-                                            <i class="icono-detalle"></i>
-                                        </button>
+                                        
                                     </td>
                                 </tr>
                             }
@@ -267,7 +267,17 @@
         nuevoCliente = new();
         modoEditar = false;
     }
+    void NuevoCliente()
+    {
+        nuevoCliente = new Cliente(); // Limpia el formulario
+        modoEditar = false;           // Establece el modo de creación (no edición)
 
+        // Si tienes un usuario por defecto para "creado_por", puedes asignarlo aquí
+        // nuevoCliente.creado_por = usuarioActual.idUsuario;
+
+        // También puedes hacer scroll automático al formulario si es necesario
+        // await JSRuntime.InvokeVoidAsync("scrollToForm");
+    }
     async Task EliminarCliente(int codigoCliente)
     {
         try
@@ -439,6 +449,35 @@
         flex-wrap: wrap;
     }
 
+
+    .btn-nuevo {
+        background-color: #E30613;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-size: 13px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+
+        .btn-nuevo:hover {
+            background-color: #c00510;
+        }
+
+    .btn-guardar {
+        background-color: #1A2E5A;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
     /* Tabla */
     table {
         width: 100%;

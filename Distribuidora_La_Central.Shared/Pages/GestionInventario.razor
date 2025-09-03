@@ -666,7 +666,8 @@
                 costo = producto.costo,
                 items = producto.items,
                 idBodega = producto.idBodega,
-                idProveedor = producto.idProveedor
+                idProveedor = producto.idProveedor,
+                unidadMedida = producto.unidadMedida  // Asegúrate de copiar este valor
             };
         showForm = true;
         modoEditar = true;
@@ -676,9 +677,17 @@
     {
         try
         {
+            if (string.IsNullOrWhiteSpace(productoActual.unidadMedida))
+            {
+                mensaje = "❌ Por favor seleccione una unidad de medida";
+                return;
+            }
+
             if (modoEditar)
             {
-                var response = await Http.PutAsJsonAsync($"api/Producto/ActualizarProducto/{productoActual.codigoProducto}", productoActual);
+                // Corrige la URL de actualización
+                var response = await Http.PutAsJsonAsync($"api/Producto/ActualizarProducto", productoActual);
+
                 if (response.IsSuccessStatusCode)
                 {
                     mensaje = "✅ Producto actualizado con éxito";
@@ -687,12 +696,14 @@
                 }
                 else
                 {
-                    mensaje = "❌ Error al actualizar el producto";
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    mensaje = $"❌ Error al actualizar el producto: {errorContent}";
                 }
             }
             else
             {
                 var response = await Http.PostAsJsonAsync("api/Producto/RegistrarProducto", productoActual);
+
                 if (response.IsSuccessStatusCode)
                 {
                     mensaje = "✅ Producto agregado con éxito";
@@ -701,13 +712,14 @@
                 }
                 else
                 {
-                    mensaje = "❌ Error al agregar el producto";
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    mensaje = $"❌ Error al agregar el producto: {errorContent}";
                 }
             }
         }
         catch (Exception ex)
         {
-            mensaje = $"❌ Error: {ex.Message}";
+            mensaje = $"❌ Error inesperado: {ex.Message}";
         }
     }
 

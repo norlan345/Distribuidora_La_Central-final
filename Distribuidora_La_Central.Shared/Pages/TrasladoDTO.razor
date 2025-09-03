@@ -265,6 +265,7 @@
                                     <th>Fecha</th>
                                     <th>Usuario</th>
                                     <th>Estado</th>
+                                    <th class="acciones-columna">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -288,6 +289,7 @@
                                                 @t.estado
                                             </span>
                                         </td>
+                                      
                                     </tr>
                                 }
                             </tbody>
@@ -332,6 +334,8 @@
             }
         }
     }
+
+   
 
     protected override async Task OnInitializedAsync()
     {
@@ -426,6 +430,33 @@
         catch (Exception ex)
         {
             await JS.InvokeVoidAsync("alert", $"Error registrando traslado: {ex.Message}");
+        }
+    }
+
+
+    private async Task CambiarEstado(int idTraslado, string nuevoEstado)
+    {
+        try
+        {
+            var confirmado = await JS.InvokeAsync<bool>("confirm", $"¿Está seguro que desea marcar este traslado como {nuevoEstado}?");
+            if (!confirmado) return;
+
+            var response = await Http.PutAsJsonAsync($"api/Traslado/CambiarEstado/{idTraslado}", nuevoEstado);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await JS.InvokeVoidAsync("alert", $"Estado del traslado actualizado a {nuevoEstado}");
+                await CargarTraslados();
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                await JS.InvokeVoidAsync("alert", $"Error: {response.StatusCode} - {errorContent}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Error cambiando estado del traslado: {ex.Message}");
         }
     }
 
