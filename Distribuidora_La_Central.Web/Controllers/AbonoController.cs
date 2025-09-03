@@ -12,6 +12,31 @@ namespace Distribuidora_La_Central.Web.Controllers
     public class AbonoController : ControllerBase
     {
         private readonly IConfiguration _configuration;
+
+        // 🔹 Constantes de cadenas repetidas
+        private const string ConnectionName = "DefaultConnection";
+        private const string EstadoActivo = "Activo";
+        private const string EstadoCancelado = "Cancelado";
+        private const string TablaAbono = "Abono";
+        private const string TablaCredito = "Credito";
+
+        // Mensajes comunes
+        private const string MsgNoAbonos = "No se encontraron abonos.";
+        private const string MsgNoCredito = "No se encontró crédito asociado a esta factura";
+        private const string MsgCreditoNoActivo = "El crédito asociado no está activo";
+        private const string MsgMontoExcedeSaldo = "El monto del abono excede el saldo disponible";
+        private const string MsgAbonoRegistrado = "Abono registrado exitosamente";
+        private const string MsgAbonoRegistradoCorrecto = "Abono registrado correctamente";
+        private const string MsgAbonoActualizado = "Abono actualizado exitosamente.";
+        private const string MsgErrorActualizar = "Error al actualizar el abono.";
+        private const string MsgAbonoEliminado = "Abono eliminado exitosamente.";
+        private const string MsgErrorEliminar = "Error al eliminar el abono.";
+        private const string MsgNoExisteCredito = "No existe crédito asociado a esta factura";
+        private const string MsgCreditoNoActivo2 = "El crédito no está activo";
+        private const string MsgMontoExcedeSaldo2 = "Monto excede el saldo disponible";
+        private const string MsgNoAbonoActualizar = "No se encontró el abono a actualizar.";
+        private const string MsgNoAbonoEliminar = "No se encontró el abono a eliminar.";
+
         public AbonoController(IConfiguration configuration)
         {
             _configuration = configuration;
@@ -21,8 +46,8 @@ namespace Distribuidora_La_Central.Web.Controllers
         [Route("GetAllAbonos")]
         public string GetAbonos()
         {
-            SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-            SqlDataAdapter da = new SqlDataAdapter("SELECT * FROM Abono;", con);
+            SqlConnection con = new SqlConnection(_configuration.GetConnectionString(ConnectionName));
+            SqlDataAdapter da = new SqlDataAdapter($"SELECT * FROM {TablaAbono};", con);
             DataTable dt = new DataTable();
             da.Fill(dt);
             List<Abono> abonoList = new List<Abono>();
@@ -50,7 +75,7 @@ namespace Distribuidora_La_Central.Web.Controllers
             else
             {
                 response.StatusCode = 100;
-                response.ErrorMessage = "No se encontraron abonos.";
+                response.ErrorMessage = MsgNoAbonos;
                 return JsonConvert.SerializeObject(response);
             }
         }
@@ -58,17 +83,16 @@ namespace Distribuidora_La_Central.Web.Controllers
         [HttpPost("registrar-abono")]
         public IActionResult RegistrarAbono([FromBody] Abono abono)
         {
-            using (SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            using (SqlConnection con = new SqlConnection(_configuration.GetConnectionString(ConnectionName)))
             {
                 con.Open();
                 using (SqlTransaction transaction = con.BeginTransaction())
                 {
                     try
                     {
-                        // 1. Verificar que existe el crédito asociado a la factura
                         SqlCommand cmdGetCredito = new SqlCommand(
-                            @"SELECT saldoMaximo, estado FROM Credito 
-                      WHERE codigoFactura = @codigoFactura",
+                            $@"SELECT saldoMaximo, estado FROM {TablaCredito} 
+                               WHERE codigoFactura = @codigoFactura",
                             con, transaction);
                         cmdGetCredito.Parameters.AddWithValue("@codigoFactura", abono.codigoFactura);
 
@@ -80,31 +104,29 @@ namespace Distribuidora_La_Central.Web.Controllers
                             if (!reader.Read())
                             {
                                 transaction.Rollback();
-                                return BadRequest("No se encontró crédito asociado a esta factura");
+                                return BadRequest(MsgNoCredito);
                             }
 
                             saldoActual = reader.GetDecimal(0);
                             estadoActual = reader.GetString(1);
                         }
 
-                        // 2. Validaciones
-                        if (estadoActual != "Activo")
+                        if (estadoActual != EstadoActivo)
                         {
                             transaction.Rollback();
-                            return BadRequest("El crédito asociado no está activo");
+                            return BadRequest(MsgCreditoNoActivo);
                         }
 
                         if (abono.montoAbono > saldoActual)
                         {
                             transaction.Rollback();
-                            return BadRequest("El monto del abono excede el saldo disponible");
+                            return BadRequest(MsgMontoExcedeSaldo);
                         }
 
-                        // 3. Registrar el abono
                         SqlCommand cmdInsertAbono = new SqlCommand(
-                            @"INSERT INTO Abono (codigoFactura, montoAbono, fechaAbono) 
-                      VALUES (@codigoFactura, @montoAbono, @fechaAbono);
-                      SELECT SCOPE_IDENTITY();", // Para obtener el ID generado
+                            $@"INSERT INTO {TablaAbono} (codigoFactura, montoAbono, fechaAbono) 
+                               VALUES (@codigoFactura, @montoAbono, @fechaAbono);
+                               SELECT SCOPE_IDENTITY();",
                             con, transaction);
                         cmdInsertAbono.Parameters.AddWithValue("@codigoFactura", abono.codigoFactura);
                         cmdInsertAbono.Parameters.AddWithValue("@montoAbono", abono.montoAbono);
@@ -112,15 +134,14 @@ namespace Distribuidora_La_Central.Web.Controllers
 
                         int idAbono = Convert.ToInt32(cmdInsertAbono.ExecuteScalar());
 
-
                         decimal nuevoSaldo = saldoActual - abono.montoAbono;
-                        string nuevoEstado = nuevoSaldo <= 0 ? "Cancelado" : "Activo";
+                        string nuevoEstado = nuevoSaldo <= 0 ? EstadoCancelado : EstadoActivo;
 
                         SqlCommand cmdUpdateCredito = new SqlCommand(
-                            @"UPDATE Credito 
-                      SET saldoMaximo = @nuevoSaldo,
-                          estado = @nuevoEstado
-                      WHERE codigoFactura = @codigoFactura",
+                            $@"UPDATE {TablaCredito} 
+                               SET saldoMaximo = @nuevoSaldo,
+                                   estado = @nuevoEstado
+                               WHERE codigoFactura = @codigoFactura",
                             con, transaction);
                         cmdUpdateCredito.Parameters.AddWithValue("@nuevoSaldo", nuevoSaldo);
                         cmdUpdateCredito.Parameters.AddWithValue("@nuevoEstado", nuevoEstado);
@@ -132,7 +153,7 @@ namespace Distribuidora_La_Central.Web.Controllers
                         return Ok(new
                         {
                             success = true,
-                            message = "Abono registrado exitosamente",
+                            message = MsgAbonoRegistrado,
                             idAbono,
                             nuevoSaldo,
                             nuevoEstado
@@ -146,12 +167,13 @@ namespace Distribuidora_La_Central.Web.Controllers
                 }
             }
         }
+
         [HttpGet("GetByFactura/{codigoFactura}")]
         public string GetAbonosPorFactura(int codigoFactura)
         {
-            SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            SqlConnection con = new SqlConnection(_configuration.GetConnectionString(ConnectionName));
             SqlDataAdapter da = new SqlDataAdapter(
-                "SELECT * FROM Abono WHERE codigoFactura = @codigoFactura",
+                $"SELECT * FROM {TablaAbono} WHERE codigoFactura = @codigoFactura",
                 con);
             da.SelectCommand.Parameters.AddWithValue("@codigoFactura", codigoFactura);
 
@@ -181,17 +203,16 @@ namespace Distribuidora_La_Central.Web.Controllers
         [HttpPost("Registrar")]
         public IActionResult RegistrarNuevoAbono([FromBody] Abono abono)
         {
-            using (SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            using (SqlConnection con = new SqlConnection(_configuration.GetConnectionString(ConnectionName)))
             {
                 con.Open();
                 using (SqlTransaction transaccion = con.BeginTransaction())
                 {
                     try
                     {
-                        // 1. Verificar crédito asociado
                         var cmdVerificarCredito = new SqlCommand(
-                            @"SELECT saldoMaximo, estado FROM Credito 
-                              WHERE codigoFactura = @codigoFactura",
+                            $@"SELECT saldoMaximo, estado FROM {TablaCredito} 
+                               WHERE codigoFactura = @codigoFactura",
                             con, transaccion);
                         cmdVerificarCredito.Parameters.AddWithValue("@codigoFactura", abono.codigoFactura);
 
@@ -200,25 +221,23 @@ namespace Distribuidora_La_Central.Web.Controllers
                             if (!lector.Read())
                             {
                                 transaccion.Rollback();
-                                return BadRequest("No existe crédito asociado a esta factura");
+                                return BadRequest(MsgNoExisteCredito);
                             }
 
                             decimal saldoActual = lector.GetDecimal(0);
                             string estadoActual = lector.GetString(1);
                             lector.Close();
 
-                            // 2. Validaciones
-                            if (estadoActual != "Activo")
-                                return BadRequest("El crédito no está activo");
+                            if (estadoActual != EstadoActivo)
+                                return BadRequest(MsgCreditoNoActivo2);
 
                             if (abono.montoAbono > saldoActual)
-                                return BadRequest("Monto excede el saldo disponible");
+                                return BadRequest(MsgMontoExcedeSaldo2);
 
-                            // 3. Registrar abono
                             var cmdRegistrarAbono = new SqlCommand(
-                                @"INSERT INTO Abono (codigoFactura, montoAbono, fechaAbono) 
-                                  VALUES (@codigoFactura, @montoAbono, @fechaAbono);
-                                  SELECT SCOPE_IDENTITY();",
+                                $@"INSERT INTO {TablaAbono} (codigoFactura, montoAbono, fechaAbono) 
+                                   VALUES (@codigoFactura, @montoAbono, @fechaAbono);
+                                   SELECT SCOPE_IDENTITY();",
                                 con, transaccion);
 
                             cmdRegistrarAbono.Parameters.AddWithValue("@codigoFactura", abono.codigoFactura);
@@ -227,15 +246,14 @@ namespace Distribuidora_La_Central.Web.Controllers
 
                             int idAbono = Convert.ToInt32(cmdRegistrarAbono.ExecuteScalar());
 
-                            // 4. Actualizar crédito
                             decimal nuevoSaldo = saldoActual - abono.montoAbono;
-                            string nuevoEstado = nuevoSaldo <= 0 ? "Cancelado" : "Activo";
+                            string nuevoEstado = nuevoSaldo <= 0 ? EstadoCancelado : EstadoActivo;
 
                             var cmdActualizarCredito = new SqlCommand(
-                                @"UPDATE Credito 
-                                  SET saldoMaximo = @nuevoSaldo,
-                                      estado = @nuevoEstado
-                                  WHERE codigoFactura = @codigoFactura",
+                                $@"UPDATE {TablaCredito} 
+                                   SET saldoMaximo = @nuevoSaldo,
+                                       estado = @nuevoEstado
+                                   WHERE codigoFactura = @codigoFactura",
                                 con, transaccion);
 
                             cmdActualizarCredito.Parameters.AddWithValue("@nuevoSaldo", nuevoSaldo);
@@ -248,7 +266,7 @@ namespace Distribuidora_La_Central.Web.Controllers
                             return Ok(new
                             {
                                 Exito = true,
-                                Mensaje = "Abono registrado correctamente",
+                                Mensaje = MsgAbonoRegistradoCorrecto,
                                 IdAbono = idAbono,
                                 NuevoSaldo = nuevoSaldo,
                                 EstadoActual = nuevoEstado
@@ -264,22 +282,20 @@ namespace Distribuidora_La_Central.Web.Controllers
             }
         }
 
-
-
         [HttpPut("actualizar-abono/{idAbono}")]
         public IActionResult ActualizarAbono(int idAbono, [FromBody] Abono abono)
         {
-            using SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using SqlConnection con = new SqlConnection(_configuration.GetConnectionString(ConnectionName));
 
-            SqlDataAdapter checkAbono = new SqlDataAdapter("SELECT * FROM Abono WHERE idAbono = @idAbono", con);
+            SqlDataAdapter checkAbono = new SqlDataAdapter($"SELECT * FROM {TablaAbono} WHERE idAbono = @idAbono", con);
             checkAbono.SelectCommand.Parameters.AddWithValue("@idAbono", idAbono);
             DataTable dt = new DataTable();
             checkAbono.Fill(dt);
 
             if (dt.Rows.Count == 0)
-                return NotFound("No se encontró el abono a actualizar.");
+                return NotFound(MsgNoAbonoActualizar);
 
-            SqlCommand cmd = new SqlCommand(@"UPDATE Abono 
+            SqlCommand cmd = new SqlCommand($@"UPDATE {TablaAbono} 
                                                SET codigoFactura = @codigoFactura,
                                                    montoAbono = @montoAbono,
                                                    fechaAbono = @fechaAbono
@@ -295,25 +311,25 @@ namespace Distribuidora_La_Central.Web.Controllers
             con.Close();
 
             if (i > 0)
-                return Ok("Abono actualizado exitosamente.");
+                return Ok(MsgAbonoActualizado);
             else
-                return StatusCode(500, "Error al actualizar el abono.");
+                return StatusCode(500, MsgErrorActualizar);
         }
 
         [HttpDelete("eliminar-abono/{idAbono}")]
         public IActionResult EliminarAbono(int idAbono)
         {
-            using SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            using SqlConnection con = new SqlConnection(_configuration.GetConnectionString(ConnectionName));
 
-            SqlDataAdapter checkAbono = new SqlDataAdapter("SELECT * FROM Abono WHERE idAbono = @idAbono", con);
+            SqlDataAdapter checkAbono = new SqlDataAdapter($"SELECT * FROM {TablaAbono} WHERE idAbono = @idAbono", con);
             checkAbono.SelectCommand.Parameters.AddWithValue("@idAbono", idAbono);
             DataTable dt = new DataTable();
             checkAbono.Fill(dt);
 
             if (dt.Rows.Count == 0)
-                return NotFound("No se encontró el abono a eliminar.");
+                return NotFound(MsgNoAbonoEliminar);
 
-            SqlCommand cmd = new SqlCommand("DELETE FROM Abono WHERE idAbono = @idAbono", con);
+            SqlCommand cmd = new SqlCommand($"DELETE FROM {TablaAbono} WHERE idAbono = @idAbono", con);
             cmd.Parameters.AddWithValue("@idAbono", idAbono);
 
             con.Open();
@@ -321,9 +337,9 @@ namespace Distribuidora_La_Central.Web.Controllers
             con.Close();
 
             if (i > 0)
-                return Ok("Abono eliminado exitosamente.");
+                return Ok(MsgAbonoEliminado);
             else
-                return StatusCode(500, "Error al eliminar el abono.");
+                return StatusCode(500, MsgErrorEliminar);
         }
     }
 }
