@@ -8,7 +8,7 @@
         public string categoria { get; set; }
         public decimal descuento { get; set; }
         public decimal costo { get; set; }
-        //public int items { get; set; }
+
         public string bodega { get; set; }
         public int idProveedor { get; set; }
     }
