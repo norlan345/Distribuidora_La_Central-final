@@ -315,13 +315,13 @@ namespace Distribuidora_La_Central.Web.Controllers
             else
                 return StatusCode(500, MsgErrorActualizar);
         }
-
         [HttpDelete("eliminar-abono/{idAbono}")]
         public IActionResult EliminarAbono(int idAbono)
         {
             using SqlConnection con = new SqlConnection(_configuration.GetConnectionString(ConnectionName));
 
-            SqlDataAdapter checkAbono = new SqlDataAdapter($"SELECT * FROM {TablaAbono} WHERE idAbono = @idAbono", con);
+            SqlDataAdapter checkAbono = new SqlDataAdapter(
+                $"SELECT * FROM {TablaAbono} WHERE idAbono = @idAbono", con);
             checkAbono.SelectCommand.Parameters.AddWithValue("@idAbono", idAbono);
             DataTable dt = new DataTable();
             checkAbono.Fill(dt);
@@ -329,7 +329,8 @@ namespace Distribuidora_La_Central.Web.Controllers
             if (dt.Rows.Count == 0)
                 return NotFound(MsgNoAbonoEliminar);
 
-            SqlCommand cmd = new SqlCommand($"DELETE FROM {TablaAbono} WHERE idAbono = @idAbono", con);
+            SqlCommand cmd = new SqlCommand(
+                $"DELETE FROM {TablaAbono} WHERE idAbono = @idAbono", con);
             cmd.Parameters.AddWithValue("@idAbono", idAbono);
 
             con.Open();
@@ -342,4 +343,4 @@ namespace Distribuidora_La_Central.Web.Controllers
                 return StatusCode(500, MsgErrorEliminar);
         }
     }
-}
+    }
